@@ -18,9 +18,21 @@
     public class SqlCmdApplier : IChangeScriptApplier
     {
         /// <summary>
+        /// The current change log table name
+        /// </summary>
+        private readonly string changeLogTableName;
+
+        private readonly string configWorkingDirectory;
+
+        /// <summary>
         /// The database connection string.
         /// </summary>
         private readonly string connectionString;
+
+        /// <summary>
+        /// The current dbms syntax that will be used for creating the change log table
+        /// </summary>
+        private readonly IDbmsSyntax dbmsSyntax;
 
         /// <summary>
         /// The info text writer to display output information.
@@ -33,16 +45,6 @@
         private readonly DatabaseSchemaVersionManager schemaVersionManager;
 
         /// <summary>
-        /// The current dbms syntax that will be used for creating the change log table
-        /// </summary>
-        private readonly IDbmsSyntax dbmsSyntax;
-
-        /// <summary>
-        /// The current change log table name
-        /// </summary>
-        private readonly string changeLogTableName;
-
-        /// <summary>
         /// Initializes a new instance of the <see cref="SqlCmdApplier" /> class.
         /// </summary>
         /// <param name="connectionString">The database connection string.</param>
@@ -50,12 +52,12 @@
         /// <param name="dbmsSyntax">Database syntax</param>
         /// <param name="changeLogTableName">ChangeLog table name</param>
         /// <param name="infoTextWriter">The info text writer.</param>
-        public SqlCmdApplier(
-            string connectionString,
+        /// <param name="configWorkingDirectory"></param>
+        public SqlCmdApplier(string connectionString,
             DatabaseSchemaVersionManager schemaVersionManager,
             IDbmsSyntax dbmsSyntax,
             string changeLogTableName,
-            TextWriter infoTextWriter)
+            TextWriter infoTextWriter, string configWorkingDirectory)
         {
             if (string.IsNullOrWhiteSpace(connectionString))
             {
@@ -86,6 +88,7 @@
             this.dbmsSyntax = dbmsSyntax;
             this.changeLogTableName = changeLogTableName;
             this.infoTextWriter = infoTextWriter;
+            this.configWorkingDirectory = configWorkingDirectory;
             this.connectionString = connectionString;
         }
 
@@ -96,7 +99,7 @@
         /// <param name="createChangeLogTable">Whether the change log table script should also be generated at the top</param>
         public void Apply(IEnumerable<ChangeScript> changeScripts, bool createChangeLogTable)
         {
-            using (var sqlCmdExecutor = new SqlCmdExecutor(this.connectionString))
+            using (var sqlCmdExecutor = new SqlCmdExecutor(configWorkingDirectory, this.connectionString))
             {
                 if (createChangeLogTable)
                 {

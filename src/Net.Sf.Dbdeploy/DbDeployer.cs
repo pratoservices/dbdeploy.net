@@ -17,17 +17,6 @@
     public class DbDeployer
     {
         /// <summary>
-        /// Generates the welcome string.
-        /// </summary>
-        /// <returns>Welcome message.</returns>
-        public string GenerateWelcomeString()
-        {
-            Version version = Assembly.GetAssembly(this.GetType()).GetName().Version;
-            
-            return "dbdeploy.net " + version;
-        }
-
-        /// <summary>
         /// Executes the a database deployment with the specified config.
         /// </summary>
         /// <param name="config">The config.</param>
@@ -42,7 +31,7 @@
             infoWriter.WriteLine(this.GenerateWelcomeString());
 
             var factory = new DbmsFactory(config.Dbms, config.ConnectionString);
-            
+
             var dbmsSyntax = factory.CreateDbmsSyntax();
 
             var queryExecuter = new QueryExecuter(factory);
@@ -57,7 +46,7 @@
             TextWriter doWriter = null;
             QueryExecuter applierExecutor = null;
 
-            if (config.OutputFile != null) 
+            if (config.OutputFile != null)
             {
                 doWriter = new StreamWriter(config.OutputFile.OpenWrite(), config.Encoding);
 
@@ -82,9 +71,10 @@
                     databaseSchemaVersionManager,
                     dbmsSyntax,
                     config.ChangeLogTableName,
-                    infoWriter);
+                    infoWriter,
+                    config.WorkingDirectory);
             }
-            else 
+            else
             {
                 var splitter = new QueryStatementSplitter
                 {
@@ -96,10 +86,10 @@
                 // Do not share query executor between schema manager and applier, since a failure in one will effect the other.
                 applierExecutor = new QueryExecuter(factory);
                 doScriptApplier = new DirectToDbApplier(
-                    applierExecutor, 
-                    databaseSchemaVersionManager, 
-                    splitter, 
-                    dbmsSyntax, 
+                    applierExecutor,
+                    databaseSchemaVersionManager,
+                    splitter,
+                    dbmsSyntax,
                     config.ChangeLogTableName,
                     infoWriter);
             }
@@ -107,7 +97,7 @@
             IChangeScriptApplier undoScriptApplier = null;
             TextWriter undoWriter = null;
 
-            if (config.UndoOutputFile != null) 
+            if (config.UndoOutputFile != null)
             {
                 undoWriter = new StreamWriter(config.UndoOutputFile.OpenWrite(), config.Encoding);
 
@@ -123,10 +113,10 @@
             try
             {
                 var controller = new Controller(
-                    changeScriptRepository, 
-                    databaseSchemaVersionManager, 
-                    doScriptApplier, 
-                    undoScriptApplier, 
+                    changeScriptRepository,
+                    databaseSchemaVersionManager,
+                    doScriptApplier,
+                    undoScriptApplier,
                     config.AutoCreateChangeLogTable,
                     infoWriter);
 
@@ -154,22 +144,14 @@
         }
 
         /// <summary>
-        /// Validates the specified config.
+        /// Generates the welcome string.
         /// </summary>
-        /// <param name="config">The config.</param>
-        /// <param name="infoWriter">The info writer.</param>
-        /// <exception cref="UsageException">Script directory must point to a valid directory</exception>
-        private void Validate(DbDeployConfig config, TextWriter infoWriter)
+        /// <returns>Welcome message.</returns>
+        public string GenerateWelcomeString()
         {
-            this.CheckForRequiredParameter(config.Dbms, "dbms");
-            this.CheckForRequiredParameter(config.ConnectionString, "connectionString");
-            this.CheckForRequiredParameter(config.ScriptDirectory, "dir");
-            this.CheckForRequiredParameter(infoWriter, "infoWriter");
+            Version version = Assembly.GetAssembly(this.GetType()).GetName().Version;
 
-            if (config.ScriptDirectory == null || !config.ScriptDirectory.Exists) 
-            {
-                throw new UsageException(string.Format("The directory '{0}' does not exist.\nScript directory must point to a valid directory", config.ScriptDirectory));
-            }
+            return "dbdeploy.net " + version;
         }
 
         /// <summary>
@@ -177,7 +159,7 @@
         /// </summary>
         /// <param name="parameterValue">The parameter value.</param>
         /// <param name="parameterName">Name of the parameter.</param>
-        private void CheckForRequiredParameter(string parameterValue, string parameterName) 
+        private void CheckForRequiredParameter(string parameterValue, string parameterName)
         {
             if (string.IsNullOrEmpty(parameterValue))
             {
@@ -190,11 +172,30 @@
         /// </summary>
         /// <param name="parameterValue">The parameter value.</param>
         /// <param name="parameterName">Name of the parameter.</param>
-        private void CheckForRequiredParameter(object parameterValue, string parameterName) 
+        private void CheckForRequiredParameter(object parameterValue, string parameterName)
         {
-            if (parameterValue == null) 
+            if (parameterValue == null)
             {
                 UsageException.ThrowForMissingRequiredValue(parameterName);
+            }
+        }
+
+        /// <summary>
+        /// Validates the specified config.
+        /// </summary>
+        /// <param name="config">The config.</param>
+        /// <param name="infoWriter">The info writer.</param>
+        /// <exception cref="UsageException">Script directory must point to a valid directory</exception>
+        private void Validate(DbDeployConfig config, TextWriter infoWriter)
+        {
+            this.CheckForRequiredParameter(config.Dbms, "dbms");
+            this.CheckForRequiredParameter(config.ConnectionString, "connectionString");
+            this.CheckForRequiredParameter(config.ScriptDirectory, "dir");
+            this.CheckForRequiredParameter(infoWriter, "infoWriter");
+
+            if (config.ScriptDirectory == null || !config.ScriptDirectory.Exists)
+            {
+                throw new UsageException(string.Format("The directory '{0}' does not exist.\nScript directory must point to a valid directory", config.ScriptDirectory));
             }
         }
     }

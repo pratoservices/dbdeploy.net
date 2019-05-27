@@ -17,6 +17,11 @@
     public class SqlCmdExecutor : IDisposable
     {
         /// <summary>
+        /// The error severity for SQLCMD exiting.
+        /// </summary>
+        private const int ErrorSeverity = 1;
+
+        /// <summary>
         /// The SQLCMD file name.
         /// </summary>
         private const string SqlCmdFileName = "SQLCMD.EXE";
@@ -32,41 +37,39 @@
         private const int SqlCmdTimeout = 60000;
 
         /// <summary>
-        /// The error severity for SQLCMD exiting.
-        /// </summary>
-        private const int ErrorSeverity = 1;
-
-        /// <summary>
-        /// The path to deploy to SQLCMD to temporarily to execution.
-        /// </summary>
-        private static readonly string ExtractPath;
-
-        /// <summary>
         /// The connection string for the database.
         /// </summary>
         private readonly string connectionString;
 
         /// <summary>
-        /// Initializes static members of the <see cref="SqlCmdApplier" /> class.
+        /// The path to deploy to SQLCMD to temporarily to execution.
         /// </summary>
-        static SqlCmdExecutor()
-        {
-            ExtractPath = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
-        }
+        private readonly string ExtractPath;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="SqlCmdExecutor" /> class.
         /// </summary>
+        /// <param name="configWorkingDirectory"></param>
         /// <param name="connectionString">The connection string.</param>
-        public SqlCmdExecutor(string connectionString)
+        public SqlCmdExecutor(string configWorkingDirectory, string connectionString)
         {
+            ExtractPath = configWorkingDirectory;
             this.connectionString = connectionString;
             DeploySqlCmd();
         }
 
         /// <summary>
+        /// Performs application-defined tasks associated with freeing, releasing, or resetting unmanaged resources.
+        /// </summary>
+        public void Dispose()
+        {
+            CleanUpSqlCmd();
+        }
+
+        /// <summary>
         /// Executes the SQL script file.
         /// </summary>
+        /// <param name="infoTextWriter"></param>
         /// <param name="file">The file.</param>
         /// <param name="output">The output of the script run.</param>
         /// <returns>
@@ -79,7 +82,7 @@
             {
                 process.StartInfo = new ProcessStartInfo
                 {
-                    CreateNoWindow = true,
+                    CreateNoWindow = false,
                     UseShellExecute = false,
                     WindowStyle = ProcessWindowStyle.Hidden,
                     FileName = GetResourceFilePath(SqlCmdFileName),
@@ -87,7 +90,6 @@
                     RedirectStandardError = true,
                     RedirectStandardOutput = true
                 };
-
                 process.Start();
                 process.WaitForExit(SqlCmdTimeout);
 
@@ -115,79 +117,31 @@
             }
             finally
             {
-                if(File.Exists(path))
+                if (File.Exists(path))
                 {
                     File.Delete(path);
                 }
             }
         }
 
-
         /// <summary>
-        /// Performs application-defined tasks associated with freeing, releasing, or resetting unmanaged resources.
+        /// Appends the item if it exists.
         /// </summary>
-        public void Dispose()
+        /// <param name="output">The result.</param>
+        /// <param name="format">The format.</param>
+        /// <param name="value">The value.</param>
+        private static void AppendItem(StringBuilder output, string format, string value)
         {
-            CleanUpSqlCmd();
-        }
-
-        /// <summary>
-        /// Extracts the SQL CMD to be able to execute against it.
-        /// </summary>
-        private static void DeploySqlCmd()
-        {
-            // Extract SQLCMD and dependencies from resource to the file system so it can be run.
-            ExtractFile(SqlCmdFileName);
-            ExtractFile(SqlCmdResourceFile);
-        }
-
-        /// <summary>
-        /// Extracts resource to file.
-        /// </summary>
-        /// <param name="resourceKey">The resource key.</param>
-        private static void ExtractFile(string resourceKey)
-        {
-            Assembly assembly = Assembly.GetExecutingAssembly();
-            string resourceName = string.Format("Net.Sf.Dbdeploy.Resources.{0}", resourceKey);
-            using (Stream resourceStream = assembly.GetManifestResourceStream(resourceName))
+            if (!string.IsNullOrWhiteSpace(value))
             {
-                using (var fileStream = new FileStream(GetResourceFilePath(resourceKey), FileMode.Create))
+                // Add a space if there is something before.
+                if (output.Length > 0)
                 {
-                    resourceStream.CopyTo(fileStream);
+                    output.Append(' ');
                 }
+
+                output.AppendFormat(format, value);
             }
-        }
-
-        /// <summary>
-        /// Cleans up SQLCMD from the file system.
-        /// </summary>
-        private static void CleanUpSqlCmd()
-        {
-            DeleteFile(SqlCmdFileName);
-            DeleteFile(SqlCmdResourceFile);
-        }
-
-        /// <summary>
-        /// Deletes the file resource.
-        /// </summary>
-        /// <param name="resourceKey">The resource key.</param>
-        private static void DeleteFile(string resourceKey)
-        {
-            var filePath = GetResourceFilePath(resourceKey);
-            if (File.Exists(filePath))
-            {
-                File.Delete(filePath);
-            }
-        }
-
-        /// <summary>
-        /// Gets the resource file path on the local file system.
-        /// </summary>
-        /// <param name="resourceKey">The resource key.</param>
-        /// <returns>Full file path on local file system.</returns>
-        private static string GetResourceFilePath(string resourceKey)
-        {
-            return Path.Combine(ExtractPath, resourceKey);
         }
 
         /// <summary>
@@ -215,23 +169,62 @@
         }
 
         /// <summary>
-        /// Appends the item if it exists.
+        /// Cleans up SQLCMD from the file system.
         /// </summary>
-        /// <param name="output">The result.</param>
-        /// <param name="format">The format.</param>
-        /// <param name="value">The value.</param>
-        private static void AppendItem(StringBuilder output, string format, string value)
+        private void CleanUpSqlCmd()
         {
-            if (!string.IsNullOrWhiteSpace(value))
-            {
-                // Add a space if there is something before.
-                if (output.Length > 0)
-                {
-                    output.Append(' ');
-                }
+            DeleteFile(SqlCmdFileName);
+            DeleteFile(SqlCmdResourceFile);
+        }
 
-                output.AppendFormat(format, value);
+        /// <summary>
+        /// Deletes the file resource.
+        /// </summary>
+        /// <param name="resourceKey">The resource key.</param>
+        private void DeleteFile(string resourceKey)
+        {
+            var filePath = GetResourceFilePath(resourceKey);
+            if (File.Exists(filePath))
+            {
+                File.Delete(filePath);
             }
+        }
+
+        /// <summary>
+        /// Extracts the SQL CMD to be able to execute against it.
+        /// </summary>
+        private void DeploySqlCmd()
+        {
+            // Extract SQLCMD and dependencies from resource to the file system so it can be run.
+            ExtractFile(SqlCmdFileName);
+            ExtractFile(SqlCmdResourceFile);
+        }
+
+        /// <summary>
+        /// Extracts resource to file.
+        /// </summary>
+        /// <param name="resourceKey">The resource key.</param>
+        private void ExtractFile(string resourceKey)
+        {
+            Assembly assembly = Assembly.GetExecutingAssembly();
+            string resourceName = string.Format("Net.Sf.Dbdeploy.Resources.{0}", resourceKey);
+            using (Stream resourceStream = assembly.GetManifestResourceStream(resourceName))
+            {
+                using (var fileStream = new FileStream(GetResourceFilePath(resourceKey), FileMode.Create))
+                {
+                    resourceStream.CopyTo(fileStream);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Gets the resource file path on the local file system.
+        /// </summary>
+        /// <param name="resourceKey">The resource key.</param>
+        /// <returns>Full file path on local file system.</returns>
+        private string GetResourceFilePath(string resourceKey)
+        {
+            return Path.Combine(ExtractPath, resourceKey);
         }
     }
 }

@@ -1,4 +1,6 @@
-﻿namespace Net.Sf.Dbdeploy.Appliers
+﻿using Net.Sf.Dbdeploy.Configuration;
+
+namespace Net.Sf.Dbdeploy.Appliers
 {
     using System.Configuration;
     using System.Data;
@@ -35,14 +37,14 @@
         private static readonly string ConnectionString = ConfigurationManager.AppSettings["ConnString"];
 
         /// <summary>
-        /// Target of the test.
-        /// </summary>
-        private SqlCmdApplier sqlCmdApplier;
-
-        /// <summary>
         /// The directory scanner for finding script files.
         /// </summary>
         private DirectoryScanner directoryScanner;
+
+        /// <summary>
+        /// Target of the test.
+        /// </summary>
+        private SqlCmdApplier sqlCmdApplier;
 
         /// <summary>
         /// Sets up the dependencies before each test.
@@ -55,7 +57,7 @@
             var dbmsSyntax = dbmsFactory.CreateDbmsSyntax();
 
             var schemaVersionManager = new DatabaseSchemaVersionManager(queryExecuter, dbmsSyntax, ChangeLogTableName);
-            this.sqlCmdApplier = new SqlCmdApplier(ConnectionString, schemaVersionManager, dbmsSyntax, ChangeLogTableName, System.Console.Out);
+            this.sqlCmdApplier = new SqlCmdApplier(ConnectionString, schemaVersionManager, dbmsSyntax, ChangeLogTableName, System.Console.Out, DbDeployDefaults.WorkingDirectory);
             this.directoryScanner = new DirectoryScanner(System.Console.Out, Encoding.UTF8);
 
             // Remove any existing changelog and customers test table.
@@ -110,7 +112,7 @@
             var syntax = new MsSqlDbmsSyntax();
             var schema = this.ExecuteScalar<string>(syntax.TableExists(name));
 
-            Assert.IsNotEmpty(schema, "'{0}' table was not created.", name);            
+            Assert.IsNotEmpty(schema, "'{0}' table was not created.", name);
         }
 
         /// <summary>
@@ -119,24 +121,9 @@
         /// <param name="name">The name.</param>
         private void EnsureTableDoesNotExist(string name)
         {
-            this.ExecuteSql(string.Format(CultureInfo.InvariantCulture, 
+            this.ExecuteSql(string.Format(CultureInfo.InvariantCulture,
 @"IF EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'[dbo].[{0}]') AND TYPE IN (N'U'))
 DROP TABLE [dbo].[{0}]", name));
-        }
-
-        /// <summary>
-        /// Executes the SQL statement.
-        /// </summary>
-        /// <param name="sql">The SQL.</param>
-        private void ExecuteSql(string sql)
-        {
-            using (var connection = this.GetConnection())
-            {
-                connection.Open();
-                var command = connection.CreateCommand();
-                command.CommandText = sql;
-                command.ExecuteNonQuery();
-            }
         }
 
         /// <summary>
@@ -160,6 +147,21 @@ DROP TABLE [dbo].[{0}]", name));
             }
 
             return result;
+        }
+
+        /// <summary>
+        /// Executes the SQL statement.
+        /// </summary>
+        /// <param name="sql">The SQL.</param>
+        private void ExecuteSql(string sql)
+        {
+            using (var connection = this.GetConnection())
+            {
+                connection.Open();
+                var command = connection.CreateCommand();
+                command.CommandText = sql;
+                command.ExecuteNonQuery();
+            }
         }
 
         /// <summary>

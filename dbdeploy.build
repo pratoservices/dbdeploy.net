@@ -12,15 +12,15 @@
     <property name="ilmerge.exe" value="Tools\ILMerge.exe" />
 
     <!-- DEFAULT CCNET PROPERTIES, to override: create a copy of local.properties.template, rename it local.properties, and modify the values as needed-->
-    <property name="sql.dir" value="${path::get-full-path('db')}" />
+    <!-- <property name="sql.dir" value="${path::get-full-path('db')}" />
     <property name="sql.server" value=".\SQLEXPRESS" />
     <property name="sql.db" value="DBDEPLOY" />
     <property name="sql.username" value="DBDeployUser"/>
-    <property name="sql.password" value="Password01"/>
+    <property name="sql.password" value="Password01"/> -->
 
     <include buildfile="local.properties" if="${file::exists('local.properties')}" />    
 
-    <target name="all" depends="clean, db, compile, test, dist" />
+    <target name="all" depends="clean, compile, dist" />
 
     <target name="init">
         <mkdir dir="${dist.dir}" />
@@ -36,14 +36,14 @@
         <copy file="${src.dir}/dbproviders.xml" todir="${build.dir}" overwrite="true" />
         <copy file="${lib.dir}/NAnt.Core.dll" todir="${build.dir}" overwrite="true" />
         <copy file="${config.dir}/App.config.template" tofile="${build.dir}/Test.Net.Sf.Dbdeploy.dll.config" overwrite="true">
-        <filterchain>
+        <!-- <filterchain>
             <replacetokens>
                 <token key="DB_SERVER" value="${sql.server}" />
                 <token key="DB_NAME" value="${sql.db}" />
                 <token key="DB_USER_NAME" value="${sql.username}" />
                 <token key="DB_USER_PWD" value="${sql.password}" />
             </replacetokens>
-        </filterchain>
+        </filterchain> -->
         </copy>
     </target>
 
@@ -52,7 +52,7 @@
         <delete dir="${dist.dir}" />
     </target>
 
-    <target name="test">
+    <!-- <target name="test">
         <loadtasks assembly="${lib.dir}/nunit.framework.dll" />
         <nunit2>
 			<formatter type="Xml" usefile="true" extension=".xml" outputdir="${test.dir}" />
@@ -71,7 +71,7 @@
             <formatter type="Plain" />
             <test assemblyname="${test.dir}/Test.Net.Sf.Dbdeploy.dll" appconfig="${test.dir}/Test.Net.Sf.Dbdeploy.dll.config"/>
         </nunit2>
-    </target>
+    </target> -->
 
     <target name="dist">
         <mkdir dir="${build.dir}/combined" />
@@ -84,9 +84,10 @@
         <ilmerge outputfile="${build.dir}/combined/dbdeploy.exe" program="${ilmerge.exe}" primary="${build.dir}/dbdeploy.exe">
             <assemblies>
                 <include name="${build.dir}/NDesk.Options.dll" />
+                <include name="${build.dir}/combined/Net.Sf.Dbdeploy.dll" />
             </assemblies>
         </ilmerge>
-        <zip zipfile="${dist.dir}/dbdeploy.net.zip">
+        <!-- <zip zipfile="${dist.dir}/dbdeploy.net.zip">
           <fileset basedir="${build.dir}" prefix="bin/">
             <include name="dbproviders.xml" />
             <include name="MSBuild.Dbdeploy.Task.dll" />
@@ -108,10 +109,10 @@
           <fileset basedir="example_scripts" prefix="example/">
             <include name="**/*" />
           </fileset>
-        </zip>
+        </zip> -->
     </target>
 
-    <target name="db">
+    <!-- <target name="db">
         <loadtasks assembly="tools\nant\contrib\NAnt.Contrib.Tasks.dll"/>
         <property name="sql.file" value="db\create.database.sql" />
 
@@ -131,7 +132,7 @@
             delimiter="GO" delimstyle="Line"
             transaction="false" batch="false" print="true" />
         
-    </target>
+    </target> -->
     <script language="C#" prefix="custom" >
         <references>
           <include name="System.dll" />
@@ -233,8 +234,7 @@
                           {
                               this.m_outputFile = StringUtils.ConvertEmptyToNull(value);
                           }
-                      }                 
-
+                      }
 
                       protected override void ExecuteTask()
                       {
@@ -253,6 +253,9 @@
                                   Log(Level.Info, string.Format("assembly[{0}]: {1}", i, m_assemblies.FileNames[i]));
                                   Arguments.Add(new Argument(string.Format("\"{0}\"", m_assemblies.FileNames[i])));
                               }
+
+                              Log(Level.Info, "/targetplatform:v4");
+                              Arguments.Add(new Argument("/targetplatform:v4"));
 
                               Arguments.Add(new Argument(string.Format("/log:\"{0}\"", m_logFile)));
 

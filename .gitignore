@@ -40,3 +40,5 @@ _ReSharper*/
 !/src/Net.Sf.Dbdeploy/Resources/*
 bintree.api.key
 bintray.api.key
+.VS/*
+src/.vs/*

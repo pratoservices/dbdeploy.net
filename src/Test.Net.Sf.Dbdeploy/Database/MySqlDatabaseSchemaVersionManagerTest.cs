@@ -21,15 +21,19 @@ namespace Net.Sf.Dbdeploy.Database
     [Category("MYSQL"), Category("DbIntegration")]
     public class MySqlDatabaseSchemaVersionManagerTest : AbstractDatabaseSchemaVersionManagerTest
     {
-        private static string _connectionString;
+        private const string DBMS = "mysql";
         private const string FOLDER = "Scripts";
+        private static string _connectionString;
 
-        private readonly string[] CHANGELOG_TABLE_DOES_NOT_EXIST_MESSAGES = new [] 
+        private readonly string[] CHANGELOG_TABLE_DOES_NOT_EXIST_MESSAGES = new[]
         {
             "No table found with name 'ChangeLog'.",
         };
 
-		private const string DBMS = "mysql";
+        protected override string[] ChangelogTableDoesNotExistMessages
+        {
+            get { return CHANGELOG_TABLE_DOES_NOT_EXIST_MESSAGES; }
+        }
 
         protected override string ConnectionString
         {
@@ -44,33 +48,33 @@ namespace Net.Sf.Dbdeploy.Database
             }
         }
 
+        protected override string Dbms
+        {
+            get { return DBMS; }
+        }
+
         protected override string Folder
         {
             get { return FOLDER; }
         }
 
-        protected override string[] ChangelogTableDoesNotExistMessages
+        [Test]
+        public void ShouldNotThrowExceptionIfAllPreviousScriptsAreCompleted()
         {
-            get { return CHANGELOG_TABLE_DOES_NOT_EXIST_MESSAGES; }
+            this.EnsureTableDoesNotExist();
+            CreateTable();
+            InsertRowIntoTable(3);
+            var changeNumbers = new List<ChangeEntry>(databaseSchemaVersion.GetAppliedChanges());
+
+            Assert.AreEqual(1, changeNumbers.Count);
+            Assert.AreEqual("Scripts/3", changeNumbers[0].UniqueKey);
         }
 
-    	protected override string Dbms
-    	{
-			get { return DBMS; }
-    	}
-
         [Test]
-    	public void ShouldNotThrowExceptionIfAllPreviousScriptsAreCompleted()
-    	{
-			this.EnsureTableDoesNotExist();
-			CreateTable();
-    		InsertRowIntoTable(3);
-			var changeNumbers = new List<ChangeEntry>(databaseSchemaVersion.GetAppliedChanges());
-
-			Assert.AreEqual(1, changeNumbers.Count);
-			Assert.AreEqual("Scripts/3", changeNumbers[0].UniqueKey);
-		}
-
+        public override void TestCanRetrieveSchemaVersionFromDatabase()
+        {
+            base.TestCanRetrieveSchemaVersionFromDatabase();
+        }
 
         [Test]
         public void TestDoesNotRunSecondScriptIfFirstScriptFails()
@@ -82,7 +86,7 @@ namespace Net.Sf.Dbdeploy.Database
             var dbmsSyntax = factory.CreateDbmsSyntax();
 
             var output = new StringBuilder();
-            
+
             var applier = new TemplateBasedApplier(
                 new StringWriter(output),
                 dbmsSyntax,
@@ -93,23 +97,16 @@ namespace Net.Sf.Dbdeploy.Database
 
             applier.Apply(new ChangeScript[]
             {
-                new StubChangeScript(1, "1.test.sql", "INSERT INTO TableWeWillUse VALUES (1);"), 
-                new StubChangeScript(2, "2.test.sql", "CREATE TABLE dbo.TableWeWillUse (Id int NULL);"), 
+                new StubChangeScript(1, "1.test.sql", "INSERT INTO TableWeWillUse VALUES (1);"),
+                new StubChangeScript(2, "2.test.sql", "CREATE TABLE dbo.TableWeWillUse (Id int NULL);"),
             }, createChangeLogTable: true);
 
-            using (var sqlExecuter = new SqlCmdExecutor(this.ConnectionString))
+            using (var sqlExecuter = new SqlCmdExecutor(DbDeployDefaults.WorkingDirectory, this.ConnectionString))
             {
                 var cmdOutput = new StringBuilder();
                 sqlExecuter.ExecuteString(output.ToString(), cmdOutput);
             }
             this.AssertTableDoesNotExist("TableWeWillUse");
-        }
-
-
-        [Test]
-        public override void TestCanRetrieveSchemaVersionFromDatabase()
-        {
-            base.TestCanRetrieveSchemaVersionFromDatabase();
         }
 
         [Test]
@@ -119,15 +116,15 @@ namespace Net.Sf.Dbdeploy.Database
         }
 
         [Test]
-        public override void TestShouldReturnEmptySetWhenTableHasNoRows()
-        {
-            base.TestShouldReturnEmptySetWhenTableHasNoRows();
-        }
-
-        [Test]
         public override void TestShouldCreateChangeLogTableWhenToldToDoSo()
         {
             base.TestShouldCreateChangeLogTableWhenToldToDoSo();
+        }
+
+        [Test]
+        public override void TestShouldReturnEmptySetWhenTableHasNoRows()
+        {
+            base.TestShouldReturnEmptySetWhenTableHasNoRows();
         }
 
         /// <summary>
@@ -140,7 +137,7 @@ namespace Net.Sf.Dbdeploy.Database
             var tableInfo = syntax.GetTableInfo(tableName);
             this.ExecuteSql(string.Format(
                 CultureInfo.InvariantCulture,
-@"DROP TABLE IF EXISTS {0}.{1}", 
+@"DROP TABLE IF EXISTS {0}.{1}",
                 tableInfo.Schema, tableInfo.TableName));
         }
 
